@@ -1,18 +1,27 @@
 """
 財務分析ツール 実行スクリプト
 
-対応ファイル形式: PDF / Excel (.xlsx/.xls) / Word (.docx)
+対応ファイル形式: PDF / Excel (.xlsx/.xls) / Word (.docx) / Google Drive
 
 使い方:
   # サンプルデータで実行
   python examples/run_analysis.py
 
-  # ファイルを指定して実行（形式は拡張子で自動判定）
+  # ローカルファイルを指定（形式は拡張子で自動判定）
   python examples/run_analysis.py --input 決算書.pdf
   python examples/run_analysis.py --input 月次PL.xlsx
   python examples/run_analysis.py --input 報告書.docx
 
-  # オプション指定
+  # Google Drive の共有リンクを指定（公開ファイル）
+  python examples/run_analysis.py --gdrive "https://drive.google.com/file/d/xxxxx/view?usp=sharing"
+  python examples/run_analysis.py --gdrive "https://docs.google.com/spreadsheets/d/xxxxx/edit"
+  python examples/run_analysis.py --gdrive "https://docs.google.com/document/d/xxxxx/edit"
+
+  # サービスアカウントで非公開ファイルを取得
+  python examples/run_analysis.py --gdrive "https://drive.google.com/file/d/xxxxx/view" \\
+      --credentials service_account.json
+
+  # 共通オプション
   python examples/run_analysis.py --input 月次PL.xlsx \\
       --company "株式会社〇〇" \\
       --period "2024年3月期" \\
@@ -34,7 +43,13 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from financial_analysis import FinancialAnalyzer, ReportGenerator, load_financial_data, extract_debug_text
+from financial_analysis import (
+    FinancialAnalyzer,
+    ReportGenerator,
+    load_financial_data,
+    extract_debug_text,
+    GoogleDriveLoader,
+)
 from examples.sample_data import sample_financial_data
 
 _SUPPORTED = ".pdf, .xlsx, .xls, .docx"
@@ -42,14 +57,28 @@ _SUPPORTED = ".pdf, .xlsx, .xls, .docx"
 
 def main():
     parser = argparse.ArgumentParser(
-        description="財務分析ツール（PDF / Excel / Word 対応）",
+        description="財務分析ツール（PDF / Excel / Word / Google Drive 対応）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument(
+
+    source_group = parser.add_argument_group("入力ソース（どちらか一方を指定）")
+    source_group.add_argument(
         "--input", "-i",
         metavar="FILE",
-        help=f"分析するファイルのパス（対応形式: {_SUPPORTED}）",
+        help=f"ローカルファイルのパス（対応形式: {_SUPPORTED}）",
+    )
+    source_group.add_argument(
+        "--gdrive", "-g",
+        metavar="URL",
+        help="Google Drive の共有リンク URL",
+    )
+
+    parser.add_argument(
+        "--credentials",
+        metavar="JSON_PATH",
+        default=None,
+        help="サービスアカウントキー JSON のパス（非公開 Google Drive ファイル用）",
     )
     parser.add_argument(
         "--company",
@@ -74,7 +103,7 @@ def main():
         "--sheet",
         metavar="SHEET_NAME",
         default=None,
-        help="Excelのシート名（省略時は自動選択）",
+        help="Excel のシート名（省略時は自動選択）",
     )
     parser.add_argument(
         "--format",
@@ -94,13 +123,17 @@ def main():
     )
     args = parser.parse_args()
 
+    if args.input and args.gdrive:
+        print("エラー: --input と --gdrive は同時に指定できません。", file=sys.stderr)
+        sys.exit(1)
+
     analyzer = FinancialAnalyzer()
     generator = ReportGenerator()
 
-    # --- デバッグモード ---
+    # --- デバッグモード（ローカルファイルのみ） ---
     if args.debug:
         if not args.input:
-            print("--debug には --input でファイルを指定してください。", file=sys.stderr)
+            print("--debug には --input でローカルファイルを指定してください。", file=sys.stderr)
             sys.exit(1)
         try:
             print(extract_debug_text(args.input, sheet_name=args.sheet))
@@ -109,8 +142,25 @@ def main():
             sys.exit(1)
         return
 
-    # --- データ読み込み ---
-    if args.input:
+    # --- Google Drive からダウンロード ---
+    if args.gdrive:
+        try:
+            loader = GoogleDriveLoader(credentials_path=args.credentials)
+            data = loader.load_from_url(
+                args.gdrive,
+                company_name=args.company,
+                period=args.period,
+                unit=args.unit,
+                sheet_name=args.sheet,
+            )
+        except Exception as e:
+            print(f"エラー: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        _print_summary(data)
+
+    # --- ローカルファイル ---
+    elif args.input:
         print(f"ファイルを読み込み中: {args.input}")
         try:
             data = load_financial_data(
@@ -124,23 +174,9 @@ def main():
             print(f"エラー: {e}", file=sys.stderr)
             sys.exit(1)
 
-        # 読み込んだ主要数値を表示
-        is_ = data.income_statement
-        print(f"\n--- 抽出した主要数値 ({data.company_name} / {is_.period or '期間不明'}) ---")
-        items = [
-            ("売上高",     is_.revenue),
-            ("売上原価",   is_.cost_of_goods_sold),
-            ("売上総利益", is_.gross_profit),
-            ("営業利益",   is_.operating_income),
-            ("当期純利益", is_.net_income),
-        ]
-        for label, val in items:
-            mark = "  " if val else "※"
-            print(f"  {mark}{label:8s}: {val:>15,.0f}")
-        if not is_.revenue:
-            print("\n  ※ 売上高が0です。--debug でファイルの抽出内容を確認してください。")
-        print()
+        _print_summary(data)
 
+    # --- サンプルデータ ---
     else:
         data = sample_financial_data
 
@@ -158,6 +194,25 @@ def main():
         print(f"レポートを {args.output} に出力しました。")
     else:
         print(report)
+
+
+def _print_summary(data):
+    """読み込んだ主要数値を表示する"""
+    is_ = data.income_statement
+    print(f"\n--- 抽出した主要数値 ({data.company_name} / {is_.period or '期間不明'}) ---")
+    items = [
+        ("売上高",     is_.revenue),
+        ("売上原価",   is_.cost_of_goods_sold),
+        ("売上総利益", is_.gross_profit),
+        ("営業利益",   is_.operating_income),
+        ("当期純利益", is_.net_income),
+    ]
+    for label, val in items:
+        mark = "  " if val else "※"
+        print(f"  {mark}{label:8s}: {val:>15,.0f}")
+    if not is_.revenue:
+        print("\n  ※ 売上高が0です。--debug でファイルの抽出内容を確認してください。")
+    print()
 
 
 if __name__ == "__main__":
