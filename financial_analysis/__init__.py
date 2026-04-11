@@ -8,6 +8,7 @@ from .models import IncomeStatement, BalanceSheet, CashFlowStatement, FinancialD
 from .ratios import FinancialRatios
 from .analyzer import FinancialAnalyzer
 from .report import ReportGenerator
+from .pdf_loader import PdfIncomeStatementLoader
 
 __all__ = [
     "IncomeStatement",
@@ -17,4 +18,5 @@ __all__ = [
     "FinancialRatios",
     "FinancialAnalyzer",
     "ReportGenerator",
+    "PdfIncomeStatementLoader",
 ]

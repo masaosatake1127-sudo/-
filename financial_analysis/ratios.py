@@ -82,27 +82,34 @@ class FinancialRatios:
             return None
         return numerator / denominator
 
+    @staticmethod
+    def _pct(value: Optional[float]) -> float:
+        """Optional[float] を % 換算する（None は 0.0 として扱う）"""
+        return (value or 0.0) * 100
+
     def profitability(self) -> ProfitabilityRatios:
         """収益性指標を計算する"""
         is_ = self.income_stmt
         bs = self.balance_sheet
         cf = self.cash_flow
 
-        gross_margin = self._safe_divide(is_.gross_profit, is_.revenue) * 100
-        op_margin = self._safe_divide(is_.operating_income, is_.revenue) * 100
-        net_margin = self._safe_divide(is_.net_income, is_.revenue) * 100
-        roa = self._safe_divide(is_.net_income, bs.total_assets) * 100
-        roe = self._safe_divide(is_.net_income, bs.total_equity) * 100
+        gross_margin = self._pct(self._safe_divide(is_.gross_profit, is_.revenue))
+        op_margin = self._pct(self._safe_divide(is_.operating_income, is_.revenue))
+        net_margin = self._pct(self._safe_divide(is_.net_income, is_.revenue))
+        roa = self._pct(self._safe_divide(is_.net_income, bs.total_assets))
+        roe = self._pct(self._safe_divide(is_.net_income, bs.total_equity))
 
         ebitda = is_.operating_income + cf.depreciation_amortization
-        ebitda_margin = self._safe_divide(ebitda, is_.revenue) * 100 if is_.revenue else None
+        ebitda_margin = (
+            self._pct(self._safe_divide(ebitda, is_.revenue)) if is_.revenue else None
+        )
 
         return ProfitabilityRatios(
-            gross_profit_margin=gross_margin or 0.0,
-            operating_profit_margin=op_margin or 0.0,
-            net_profit_margin=net_margin or 0.0,
-            return_on_assets=roa or 0.0,
-            return_on_equity=roe or 0.0,
+            gross_profit_margin=gross_margin,
+            operating_profit_margin=op_margin,
+            net_profit_margin=net_margin,
+            return_on_assets=roa,
+            return_on_equity=roe,
             ebitda_margin=ebitda_margin,
         )
 
@@ -111,15 +118,15 @@ class FinancialRatios:
         bs = self.balance_sheet
         is_ = self.income_stmt
 
-        current_ratio = (
-            self._safe_divide(bs.total_current_assets, bs.total_current_liabilities) * 100
+        current_ratio = self._pct(
+            self._safe_divide(bs.total_current_assets, bs.total_current_liabilities)
         )
         quick_assets = bs.cash_and_equivalents + bs.accounts_receivable
-        quick_ratio = (
-            self._safe_divide(quick_assets, bs.total_current_liabilities) * 100
+        quick_ratio = self._pct(
+            self._safe_divide(quick_assets, bs.total_current_liabilities)
         )
         de_ratio = self._safe_divide(bs.total_liabilities, bs.total_equity)
-        equity_ratio = self._safe_divide(bs.total_equity, bs.total_assets) * 100
+        equity_ratio = self._pct(self._safe_divide(bs.total_equity, bs.total_assets))
 
         # インタレスト・カバレッジ・レシオ（支払利息がある場合）
         interest_expense = is_.non_operating_expenses
