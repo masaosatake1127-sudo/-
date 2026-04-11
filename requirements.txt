@@ -6,3 +6,4 @@ requests>=2.31
 google-api-python-client>=2.0
 google-auth>=2.0
 streamlit>=1.30
+anthropic>=0.40.0
