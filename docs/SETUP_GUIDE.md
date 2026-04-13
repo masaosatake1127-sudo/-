@@ -96,22 +96,10 @@ drive.mount('/content/drive')
 
 #### ステップ5: ファイルマネージャーを起動（セル④）
 
-```python
-# セル④を実行
-scan_drive('/content/drive/MyDrive', max_depth=3)
-```
+セル④をそのまま実行してください。Drive 内の対応ファイルが番号付きで一覧表示されます。  
+出力例は [`docs/05_interfaces.md`](./05_interfaces.md#3-google-colabノートブック) を参照。
 
-実行すると Drive 内の対応ファイルが番号付きで表示されます:
-
-```
-📄  1. 月次PL_2024.pdf        /content/drive/MyDrive/財務/月次PL_2024.pdf
-📊  2. 決算書.xlsx             /content/drive/MyDrive/決算/決算書.xlsx
-📝  3. 財務報告書.docx         /content/drive/MyDrive/報告/財務報告書.docx
-
-合計 3 件のファイルが見つかりました
-```
-
-> `max_depth` を増やすと深い階層まで検索します（デフォルト: 3）
+> `SEARCH_DEPTH` の値を増やすと深い階層まで検索します（デフォルト: 3）
 
 #### ステップ6: ファイルを選択して分析（セル⑤）
 
@@ -237,16 +225,8 @@ python examples/run_analysis.py --input 決算書.pdf --debug
 セル⑦を実行すると、シート名・先頭行・抽出テキストが表示されます。
 
 **対処方法:**
-- ファイル内の科目名を確認し、以下のいずれかに合わせる:
-
-| 標準表記（認識可能） |
-|---------------------|
-| 売上高 / 営業収益 / 売上収入 |
-| 売上原価 / 製造原価 / 原価 |
-| 売上総利益 / 粗利 |
-| 販売費 / 販管費 / 販売費及び一般管理費 |
-| 営業利益 / 事業利益 |
-| 当期純利益 / 最終利益 / 純損益 |
+- ファイル内の科目名を確認し、認識可能な表記に合わせる。  
+  認識可能なキーワード一覧は [`docs/04_loaders.md`](./04_loaders.md#キーワードマップ抜粋) を参照。
 
 ### Excelで複数シートがある
 
@@ -299,21 +279,4 @@ Streamlit の場合はサイドバーの「Excelシート名」欄に入力。
 
 ---
 
-## よくある使用例まとめ
-
-```bash
-# 1. まずサンプルで動作確認
-python examples/run_analysis.py
-
-# 2. PDFを分析してMarkdown出力
-python examples/run_analysis.py -i 決算書.pdf --format markdown -o report.md
-
-# 3. 千円単位のExcelを分析
-python examples/run_analysis.py -i 月次PL.xlsx --unit 1000
-
-# 4. 抽出内容をデバッグ確認
-python examples/run_analysis.py -i 月次PL.xlsx --debug
-
-# 5. WebUIを起動
-streamlit run app.py
-```
+> CLI コマンドの詳細なオプションと実行例は [セクション4](#4-cliで使うpc) を参照してください。

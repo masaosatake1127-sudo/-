@@ -36,6 +36,7 @@ _KEYWORD_MAP: Dict[str, str] = {
     "売上": "revenue",
     "収益合計": "revenue",
     "営業収益": "revenue",
+    "売上収入": "revenue",
     # 売上原価
     "売上原価": "cost_of_goods_sold",
     "原価合計": "cost_of_goods_sold",
